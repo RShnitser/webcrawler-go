@@ -18,5 +18,6 @@ func main(){
 	url := cmdArgs[0]
 	fmt.Printf("starting crawl of %v\n", url)
 
-	fmt.Println(getHTML(url))
+	pages := make(map[string]int)
+	crawlPage(url, url, pages)
 }
