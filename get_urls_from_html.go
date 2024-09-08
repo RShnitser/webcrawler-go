@@ -7,7 +7,7 @@ import(
 	"net/url"
 )
 
-func getURLsFromHTML(htmlBody, baseURL *url.URL) ([]string, error){
+func getURLsFromHTML(htmlBody string, baseURL *url.URL) ([]string, error){
 	
 	htmlReader := strings.NewReader(htmlBody)
 	htmlTree, err := html.Parse(htmlReader)
@@ -27,7 +27,7 @@ func getURLsFromHTML(htmlBody, baseURL *url.URL) ([]string, error){
 						fmt.Printf("couldn't parse href '%v': %v\n", a.Val, err)
 						continue
 					}
-					resolvedURL := parsedBase.ResolveReference(parsedLink)
+					resolvedURL := baseURL.ResolveReference(parsedLink)
 					result = append(result, resolvedURL.String())
 				}
 			}

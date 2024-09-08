@@ -1,7 +1,6 @@
 package main
 
 import(
-	"fmt"
 	"net/url"
 	"sync"
 )
@@ -9,9 +8,10 @@ import(
 type config struct {
 	pages              map[string]int
 	baseURL            *url.URL
-	mu                 *sync.Mutex
+	mu                 *sync.RWMutex
 	concurrencyControl chan struct{}
 	wg                 *sync.WaitGroup
+	maxPages int
 }
 
 func (cfg *config) addPageVisit(normalizedURL string) (isFirst bool){
@@ -26,15 +26,27 @@ func (cfg *config) addPageVisit(normalizedURL string) (isFirst bool){
 	return true
 }
 
+func (cfg *config) checkPageCount() (shouldEnd bool){
+	cfg.mu.RLock()
+	defer cfg.mu.RUnlock()
+	count := len(cfg.pages)
+	if count > cfg.maxPages{
+		return true
+	}
+	return false
+}
 
 func (cfg *config)crawlPage(rawCurrentURL string){
 	cfg.concurrencyControl<- struct{}{}
-
+	
 	defer func(){
-		
 		cfg.wg.Done()
 		<-cfg.concurrencyControl
 	}()
+
+	if cfg.checkPageCount(){
+		return
+	}
 	
 	parsedCurrent, err := url.Parse(rawCurrentURL)
 	if err != nil {
@@ -56,7 +68,7 @@ func (cfg *config)crawlPage(rawCurrentURL string){
 		return
 	}
 
-	fmt.Printf("crawling %s\n", rawCurrentURL)
+	//fmt.Printf("crawling %s\n", rawCurrentURL)
 
 	html, err := getHTML(rawCurrentURL)
 	if err != nil{
