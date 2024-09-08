@@ -7,13 +7,7 @@ import(
 	"net/url"
 )
 
-func getURLsFromHTML(htmlBody, rawBaseURL string) ([]string, error){
-	
-	parsedBase, err := url.Parse(rawBaseURL)
-	if err != nil{
-		return nil, fmt.Errorf("couldn't parse base URL: %w", err)
-	}
-	
+func getURLsFromHTML(htmlBody, baseURL *url.URL) ([]string, error){
 	
 	htmlReader := strings.NewReader(htmlBody)
 	htmlTree, err := html.Parse(htmlReader)

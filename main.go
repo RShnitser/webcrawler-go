@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync"
+	"net/url"
 )
 
 func main(){
@@ -15,9 +17,24 @@ func main(){
 		os.Exit(1)
 	}
 
-	url := cmdArgs[0]
-	fmt.Printf("starting crawl of %v\n", url)
+	rawURL := cmdArgs[0]
+	fmt.Printf("starting crawl of %v\n", rawURL)
 
-	pages := make(map[string]int)
-	crawlPage(url, url, pages)
+	parsedBase, err := url.Parse(rawURL)
+	if err != nil {
+		fmt.Println("unable to parse url")
+		os.Exit(1)
+	}
+
+	cfg := config{
+		make(map[string]int),
+		parsedBase,
+		&sync.Mutex{},
+		make(chan struct{}, 20),
+		&sync.WaitGroup{},
+	}
+
+	cfg.wg.Add(1)
+	go cfg.crawlPage(rawURL)
+	cfg.wg.Wait()
 }

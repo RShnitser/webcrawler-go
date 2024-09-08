@@ -3,20 +3,45 @@ package main
 import(
 	"fmt"
 	"net/url"
+	"sync"
 )
 
-func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int){
-	parsedBase, err := url.Parse(rawBaseURL)
-	if err != nil {
-		return
-	}
+type config struct {
+	pages              map[string]int
+	baseURL            *url.URL
+	mu                 *sync.Mutex
+	concurrencyControl chan struct{}
+	wg                 *sync.WaitGroup
+}
 
+func (cfg *config) addPageVisit(normalizedURL string) (isFirst bool){
+	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
+	count, ok := cfg.pages[normalizedURL]
+	if ok{
+		cfg.pages[normalizedURL] = count + 1
+		return false
+	}
+	cfg.pages[normalizedURL] = 1
+	return true
+}
+
+
+func (cfg *config)crawlPage(rawCurrentURL string){
+	cfg.concurrencyControl<- struct{}{}
+
+	defer func(){
+		
+		cfg.wg.Done()
+		<-cfg.concurrencyControl
+	}()
+	
 	parsedCurrent, err := url.Parse(rawCurrentURL)
 	if err != nil {
 		return
 	}
 
-	if parsedBase.Hostname() != parsedCurrent.Hostname(){
+	if cfg.baseURL.Hostname() != parsedCurrent.Hostname(){
 		return
 	}
 
@@ -25,26 +50,26 @@ func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int){
 		return
 	}
 
-	count, ok := pages[normalized]
-	if ok{
-		pages[normalized] = count + 1
+
+	first := cfg.addPageVisit(normalized)
+	if !first{
 		return
-	}else{
-		pages[normalized] = 1
 	}
+
+	fmt.Printf("crawling %s\n", rawCurrentURL)
 
 	html, err := getHTML(rawCurrentURL)
 	if err != nil{
 		return
 	}
 
-	urls, err := getURLsFromHTML(html, rawBaseURL)
+	urls, err := getURLsFromHTML(html, cfg.baseURL)
 	if err != nil{
 		return
 	}
 
 	for _, url := range urls{
-		crawlPage(rawBaseURL, url, pages)
-		fmt.Println(url)
+		cfg.wg.Add(1)
+		go cfg.crawlPage(url)
 	}
 }
